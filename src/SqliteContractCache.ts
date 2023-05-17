@@ -37,16 +37,31 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
       }
 
       this._db.pragma("journal_mode = WAL");
-      // Incremental auto-vacuum. Reuses space marked as deleted.
-      this._db.pragma("auto_vacuum = 2");
-      this._db.exec("VACUUM");
+      if (this.firstRun()) {
+        // Incremental auto-vacuum. Reuses space marked as deleted.
+        this._db.pragma("auto_vacuum = 2");
+        this._db.exec("VACUUM");
+      }
       this.sortKeyTable();
     }
     return this._db;
   }
 
+  private firstRun(): boolean {
+    const result = this._db
+      .prepare(
+        `SELECT name
+         FROM sqlite_master
+         WHERE type = 'table'
+           AND tbl_name = 'sort_key_cache';`
+      )
+      .pluck()
+      .get();
+    return !result;
+  }
+
   private sortKeyTable() {
-    this.db.exec(
+    this._db.exec(
       `CREATE TABLE IF NOT EXISTS sort_key_cache
        (
            id       INTEGER PRIMARY KEY,
