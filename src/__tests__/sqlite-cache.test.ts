@@ -253,6 +253,48 @@ describe("Sqlite cache", () => {
     }
   });
 
+  it("should keep the latest insert, even it is the smallest one", async () => {
+    const sut = await cache(DB_NAME, 0, 0, {
+      maxEntriesPerContract: 2,
+    });
+
+    await sut.put(
+      {
+        key: getContractId(0),
+        sortKey: getSortKey(5),
+      },
+      { result: `contract5` }
+    );
+    await sut.put(
+      {
+        key: getContractId(0),
+        sortKey: getSortKey(7),
+      },
+      { result: `contract7` }
+    );
+    await sut.put(
+      {
+        key: getContractId(0),
+        sortKey: getSortKey(2),
+      },
+      { result: `contract2` }
+    );
+
+    const result5 = await sut.get(
+      new CacheKey(getContractId(0), getSortKey(5))
+    );
+    const result7 = await sut.get(
+      new CacheKey(getContractId(0), getSortKey(7))
+    );
+    const result2 = await sut.get(
+      new CacheKey(getContractId(0), getSortKey(2))
+    );
+
+    expect(result5).toBeFalsy();
+    expect(result7).toBeTruthy();
+    expect(result2).toBeTruthy();
+  });
+
   it("properly encodes entries", async () => {
     const sut = await cache(DB_NAME, 0, 0, {
       maxEntriesPerContract: 1000,
