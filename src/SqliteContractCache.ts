@@ -17,25 +17,36 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
 
   private _db: Database;
 
+  constructor(
+    private readonly cacheOptions: CacheOptions,
+    private readonly sqliteCacheOptions?: SqliteCacheOptions) {
+    if (!this.cacheOptions.dbLocation) {
+      throw new Error(
+        "Sqlite cache configuration error - no db location specified"
+      );
+    }
+    this.logger.info(`Using location ${cacheOptions.dbLocation}`);
+
+    if (!sqliteCacheOptions) {
+      this.sqliteCacheOptions = {
+        maxEntriesPerContract: 10,
+      };
+    }
+  }
+
   // Lazy initialization upon first access
   private get db() {
     if (!this._db) {
       if (this.cacheOptions.inMemory) {
         this._db = new Database(":memory:");
       } else {
-        if (!this.cacheOptions.dbLocation) {
-          throw new Error(
-            "Sqlite cache configuration error - no db location specified"
-          );
-        }
         const dbLocation = this.cacheOptions.dbLocation;
-        this.logger.info(`Using location ${dbLocation}`);
+
         if (!fs.existsSync(dbLocation)) {
           fs.mkdirSync(dbLocation, { recursive: true });
         }
         this._db = new Database(dbLocation + ".db");
       }
-
       this._db.pragma("journal_mode = WAL");
       if (this.firstRun()) {
         // Incremental auto-vacuum. Reuses space marked as deleted.
@@ -72,17 +83,6 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
        )
       `
     );
-  }
-
-  constructor(
-    private readonly cacheOptions: CacheOptions,
-    private readonly sqliteCacheOptions?: SqliteCacheOptions
-  ) {
-    if (!sqliteCacheOptions) {
-      this.sqliteCacheOptions = {
-        maxEntriesPerContract: 10,
-      };
-    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -142,6 +142,7 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
   }
 
   async put(stateCacheKey: CacheKey, value: V): Promise<void> {
+    this.removeOldestEntries(stateCacheKey.key);
     const strVal = safeStringify(value);
     this.db
       .prepare(
@@ -152,7 +153,6 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
         sort_key: stateCacheKey.sortKey,
         value: strVal,
       });
-    this.removeOldestEntries(stateCacheKey.key);
   }
 
   private removeOldestEntries(key: string) {
@@ -165,7 +165,7 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
                       WHERE key = ?)
             DELETE
             FROM sort_key_cache
-            WHERE id IN (SELECT id FROM sorted_cache WHERE rw > ?);
+            WHERE id IN (SELECT id FROM sorted_cache WHERE rw >= ?);
         `
       )
       .run(key, this.sqliteCacheOptions.maxEntriesPerContract);
