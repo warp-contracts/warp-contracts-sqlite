@@ -19,7 +19,8 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
 
   constructor(
     private readonly cacheOptions: CacheOptions,
-    private readonly sqliteCacheOptions?: SqliteCacheOptions) {
+    private readonly sqliteCacheOptions?: SqliteCacheOptions
+  ) {
     if (!this.cacheOptions.dbLocation) {
       throw new Error(
         "Sqlite cache configuration error - no db location specified"
