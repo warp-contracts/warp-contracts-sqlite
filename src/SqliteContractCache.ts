@@ -11,6 +11,7 @@ import Database from "better-sqlite3";
 import { SqliteCacheOptions } from "./SqliteCacheOptions";
 import fs from "fs";
 import safeStringify from "safe-stable-stringify";
+import crypto from "crypto";
 
 export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
   private readonly logger = LoggerFactory.INST.create(SqliteContractCache.name);
@@ -80,6 +81,7 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
            key      TEXT,
            sort_key TEXT,
            value    TEXT,
+           hash     TEXT,
            UNIQUE (key, sort_key)
        )
       `
@@ -145,15 +147,23 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
   async put(stateCacheKey: CacheKey, value: V): Promise<void> {
     this.removeOldestEntries(stateCacheKey.key);
     const strVal = safeStringify(value);
+    const hash = this.generateHash(strVal);
     this.db
       .prepare(
-        "INSERT OR REPLACE INTO sort_key_cache (key, sort_key, value) VALUES (@key, @sort_key, @value)"
+        "INSERT OR REPLACE INTO sort_key_cache (key, sort_key, value, hash) VALUES (@key, @sort_key, @value, @hash)"
       )
       .run({
         key: stateCacheKey.key,
         sort_key: stateCacheKey.sortKey,
         value: strVal,
+        hash: hash,
       });
+  }
+
+  private generateHash(value: string): string {
+    const hash = crypto.createHash("sha256");
+    hash.update(value);
+    return hash.digest("hex");
   }
 
   private removeOldestEntries(key: string) {
