@@ -196,15 +196,15 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
   }
 
   async begin(): Promise<void> {
-    this.db.prepare("BEGIN;");
+    this.db.exec("BEGIN;");
   }
 
   async rollback() {
-    this.db.prepare("ROLLBACK;");
+    this.db.exec("ROLLBACK;");
   }
 
   async commit() {
-    this.db.prepare("COMMIT;");
+    this.db.exec("COMMIT;");
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
