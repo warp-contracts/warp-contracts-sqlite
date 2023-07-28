@@ -5,6 +5,7 @@ import {
   PruneStats,
   SortKeyCacheResult,
   BasicSortKeyCache,
+  EvalStateResult,
 } from "warp-contracts";
 
 import Database from "better-sqlite3";
@@ -13,7 +14,9 @@ import fs from "fs";
 import safeStringify from "safe-stable-stringify";
 import crypto from "crypto";
 
-export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
+export class SqliteContractCache<V>
+  implements BasicSortKeyCache<EvalStateResult<V>>
+{
   private readonly logger = LoggerFactory.INST.create(SqliteContractCache.name);
 
   private _db: Database;
@@ -82,6 +85,7 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
            sort_key TEXT,
            value    TEXT,
            hash     TEXT,
+           state_hash     TEXT,
            UNIQUE (key, sort_key)
        )
       `
@@ -92,7 +96,7 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
   async get(
     cacheKey: CacheKey,
     returnDeepCopy?: boolean
-  ): Promise<SortKeyCacheResult<V> | null> {
+  ): Promise<SortKeyCacheResult<EvalStateResult<V>> | null> {
     const result = this.db
       .prepare(
         `SELECT value
@@ -104,12 +108,14 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
       .get(cacheKey.key, cacheKey.sortKey);
 
     if (result) {
-      return new SortKeyCacheResult<V>(cacheKey.sortKey, JSON.parse(result));
+      return new SortKeyCacheResult(cacheKey.sortKey, JSON.parse(result));
     }
     return null;
   }
 
-  async getLast(key: string): Promise<SortKeyCacheResult<V> | null> {
+  async getLast(
+    key: string
+  ): Promise<SortKeyCacheResult<EvalStateResult<V>> | null> {
     const result = this.db
       .prepare(
         "SELECT sort_key, value FROM sort_key_cache WHERE key = ? ORDER BY sort_key DESC LIMIT 1"
@@ -117,10 +123,7 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
       .get(key);
 
     if (result && result.value) {
-      return new SortKeyCacheResult<V>(
-        result.sort_key,
-        JSON.parse(result.value)
-      );
+      return new SortKeyCacheResult(result.sort_key, JSON.parse(result.value));
     }
     return null;
   }
@@ -128,7 +131,7 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
   async getLessOrEqual(
     key: string,
     sortKey: string
-  ): Promise<SortKeyCacheResult<V> | null> {
+  ): Promise<SortKeyCacheResult<EvalStateResult<V>> | null> {
     const result = this.db
       .prepare(
         "SELECT sort_key, value FROM sort_key_cache WHERE key = ? AND sort_key <= ? ORDER BY sort_key DESC LIMIT 1"
@@ -136,7 +139,7 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
       .get(key, sortKey);
 
     if (result && result.value) {
-      return new SortKeyCacheResult<V>(
+      return new SortKeyCacheResult<EvalStateResult<V>>(
         result.sort_key,
         JSON.parse(result.value)
       );
@@ -144,19 +147,21 @@ export class SqliteContractCache<V> implements BasicSortKeyCache<V> {
     return null;
   }
 
-  async put(stateCacheKey: CacheKey, value: V): Promise<void> {
+  async put(stateCacheKey: CacheKey, value: EvalStateResult<V>): Promise<void> {
     this.removeOldestEntries(stateCacheKey.key);
     const strVal = safeStringify(value);
     const hash = this.generateHash(strVal);
+    const stateHash = this.generateHash(safeStringify(value.state));
     this.db
       .prepare(
-        "INSERT OR REPLACE INTO sort_key_cache (key, sort_key, value, hash) VALUES (@key, @sort_key, @value, @hash)"
+        "INSERT OR REPLACE INTO sort_key_cache (key, sort_key, value, hash, state_hash) VALUES (@key, @sort_key, @value, @hash, @state_hash)"
       )
       .run({
         key: stateCacheKey.key,
         sort_key: stateCacheKey.sortKey,
         value: strVal,
         hash: hash,
+        state_hash: stateHash,
       });
   }
 
