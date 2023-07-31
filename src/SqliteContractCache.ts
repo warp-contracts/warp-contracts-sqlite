@@ -147,6 +147,26 @@ export class SqliteContractCache<V>
     return null;
   }
 
+  // TODO: c-p
+  async getLess(
+    key: string,
+    sortKey: string
+  ): Promise<SortKeyCacheResult<EvalStateResult<V>> | null> {
+    const result = this.db
+      .prepare(
+        "SELECT sort_key, value FROM sort_key_cache WHERE key = ? AND sort_key < ? ORDER BY sort_key DESC LIMIT 1"
+      )
+      .get(key, sortKey);
+
+    if (result && result.value) {
+      return new SortKeyCacheResult<EvalStateResult<V>>(
+        result.sort_key,
+        JSON.parse(result.value)
+      );
+    }
+    return null;
+  }
+
   async put(stateCacheKey: CacheKey, value: EvalStateResult<V>): Promise<void> {
     this.removeOldestEntries(stateCacheKey.key);
     const strVal = JSON.stringify(value);
