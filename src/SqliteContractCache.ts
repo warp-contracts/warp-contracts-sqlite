@@ -169,7 +169,7 @@ export class SqliteContractCache<V>
 
   async put(stateCacheKey: CacheKey, value: EvalStateResult<V>): Promise<void> {
     this.removeOldestEntries(stateCacheKey.key);
-    const strVal = JSON.stringify(value);
+    const strVal = safeStringify(value);
     const stateHash = this.generateHash(safeStringify(value.state));
     const validityHash = this.generateHash(safeStringify(value.validity));
     this.db
