@@ -169,12 +169,12 @@ export class SqliteContractCache<V>
 
   async put(stateCacheKey: CacheKey, value: EvalStateResult<V>): Promise<void> {
     this.removeOldestEntries(stateCacheKey.key);
-    const strVal = safeStringify(value);
+    const strVal = JSON.stringify(value); // to preserve validity order
     const stateHash = this.generateHash(safeStringify(value.state));
     const validityHash = this.generateHash(safeStringify(value.validity));
     this.db
       .prepare(
-        "INSERT OR REPLACE INTO sort_key_cache (key, sort_key, value, state_hash, validity_hash) VALUES (@key, @sort_key, @value, @state_hash, @validity_hash)"
+        "INSERT OR IGNORE INTO sort_key_cache (key, sort_key, value, state_hash, validity_hash) VALUES (@key, @sort_key, @value, @state_hash, @validity_hash)"
       )
       .run({
         key: stateCacheKey.key,
