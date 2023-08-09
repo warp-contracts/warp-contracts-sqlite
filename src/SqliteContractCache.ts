@@ -6,6 +6,7 @@ import {
   SortKeyCacheResult,
   BasicSortKeyCache,
   EvalStateResult,
+  Benchmark,
 } from "warp-contracts";
 
 import Database from "better-sqlite3";
@@ -168,10 +169,17 @@ export class SqliteContractCache<V>
   }
 
   async put(stateCacheKey: CacheKey, value: EvalStateResult<V>): Promise<void> {
+    const benchmark = Benchmark.measure();
     this.removeOldestEntries(stateCacheKey.key);
+    this.logger.info("Removing oldest entries", benchmark.elapsed());
+    benchmark.reset();
+
     const strVal = JSON.stringify(value); // to preserve validity order
     const stateHash = this.generateHash(safeStringify(value.state));
     const validityHash = this.generateHash(safeStringify(value.validity));
+    this.logger.info("Generating hashes", benchmark.elapsed());
+    benchmark.reset();
+
     this.db
       .prepare(
         "INSERT OR REPLACE INTO sort_key_cache (key, sort_key, value, state_hash, validity_hash) VALUES (@key, @sort_key, @value, @state_hash, @validity_hash)"
@@ -183,6 +191,7 @@ export class SqliteContractCache<V>
         state_hash: stateHash,
         validity_hash: validityHash,
       });
+    this.logger.info("DB INSERT", benchmark.elapsed());
   }
 
   private generateHash(value: string): string {
