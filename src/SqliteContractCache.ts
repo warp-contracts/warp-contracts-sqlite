@@ -174,7 +174,7 @@ export class SqliteContractCache<V>
     this.logger.info("Removing oldest entries", benchmark.elapsed());
     benchmark.reset();
 
-    const strVal = safeStringify(value.state);
+    const strVal = safeStringify(value);
     const stateHash = ""; //this.generateHash(safeStringify(value.state));
     const validityHash = ""; // this.generateHash(safeStringify(value.validity));
     this.logger.info("Generating hashes", benchmark.elapsed());
