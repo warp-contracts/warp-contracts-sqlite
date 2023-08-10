@@ -12,7 +12,6 @@ import {
 import Database from "better-sqlite3";
 import { SqliteCacheOptions } from "./SqliteCacheOptions";
 import fs from "fs";
-import safeStringify from "safe-stable-stringify";
 import crypto from "crypto";
 
 export class SqliteContractCache<V>
@@ -174,7 +173,7 @@ export class SqliteContractCache<V>
     this.logger.info("Removing oldest entries", benchmark.elapsed());
     benchmark.reset();
 
-    const strVal = safeStringify(value);
+    const strVal = JSON.stringify(value);
     const stateHash = ""; //this.generateHash(safeStringify(value.state));
     const validityHash = ""; // this.generateHash(safeStringify(value.validity));
     this.logger.info("Generating hashes", benchmark.elapsed());
