@@ -117,11 +117,14 @@ export class SqliteContractCache<V>
   async getLast(
     key: string
   ): Promise<SortKeyCacheResult<EvalStateResult<V>> | null> {
+    const benchmark = Benchmark.measure();
     const result = this.db
       .prepare(
         "SELECT sort_key, value FROM sort_key_cache WHERE key = ? ORDER BY sort_key DESC LIMIT 1"
       )
       .get(key);
+
+    this.logger.debug(`getLast ${key}`, benchmark.elapsed());
 
     if (result && result.value) {
       return new SortKeyCacheResult(result.sort_key, JSON.parse(result.value));
@@ -171,13 +174,13 @@ export class SqliteContractCache<V>
   async put(stateCacheKey: CacheKey, value: EvalStateResult<V>): Promise<void> {
     const benchmark = Benchmark.measure();
     this.removeOldestEntries(stateCacheKey.key);
-    this.logger.info("Removing oldest entries", benchmark.elapsed());
+    this.logger.debug("Removing oldest entries", benchmark.elapsed());
     benchmark.reset();
 
     const strVal = JSON.stringify(value); // to preserve validity order
-    const stateHash = this.generateHash(safeStringify(value.state));
-    const validityHash = this.generateHash(safeStringify(value.validity));
-    this.logger.info("Generating hashes", benchmark.elapsed());
+    // const stateHash = this.generateHash(safeStringify(value.state));
+    // const validityHash = this.generateHash(safeStringify(value.validity));
+    this.logger.debug("Generating hashes", benchmark.elapsed());
     benchmark.reset();
 
     this.db
@@ -188,10 +191,10 @@ export class SqliteContractCache<V>
         key: stateCacheKey.key,
         sort_key: stateCacheKey.sortKey,
         value: strVal,
-        state_hash: stateHash,
-        validity_hash: validityHash,
+        state_hash: "",
+        validity_hash: "",
       });
-    this.logger.info("DB INSERT", benchmark.elapsed());
+    this.logger.debug("DB INSERT", benchmark.elapsed());
   }
 
   private generateHash(value: string): string {
