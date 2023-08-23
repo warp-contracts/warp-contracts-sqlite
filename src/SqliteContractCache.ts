@@ -12,8 +12,6 @@ import {
 import Database from "better-sqlite3";
 import { SqliteCacheOptions } from "./SqliteCacheOptions";
 import fs from "fs";
-import safeStringify from "safe-stable-stringify";
-import crypto from "crypto";
 
 export class SqliteContractCache<V>
   implements BasicSortKeyCache<EvalStateResult<V>>
@@ -86,7 +84,7 @@ export class SqliteContractCache<V>
            sort_key TEXT,
            value    TEXT,
            state_hash     TEXT,
-           validity_hash  TEXT,
+           signature      TEXT,
            UNIQUE (key, sort_key)
        )
       `
@@ -197,12 +195,6 @@ export class SqliteContractCache<V>
     this.logger.debug("DB INSERT", benchmark.elapsed());
   }
 
-  private generateHash(value: string): string {
-    const hash = crypto.createHash("sha256");
-    hash.update(value);
-    return hash.digest("hex");
-  }
-
   private removeOldestEntries(key: string) {
     this.db
       .prepare(
@@ -303,5 +295,22 @@ export class SqliteContractCache<V>
       sizeBefore: -1,
       sizeAfter: -1,
     };
+  }
+
+  async setSignature(
+    cacheKey: CacheKey,
+    hash: string,
+    signature: string
+  ): Promise<void> {
+    this.db
+      .prepare(
+        "UPDATE sort_key_cache SET state_hash = @state_hash, signature = @signature WHERE key = @key AND sort_key = @sort_key"
+      )
+      .run({
+        key: cacheKey.key,
+        sort_key: cacheKey.sortKey,
+        state_hash: hash,
+        signature: signature,
+      });
   }
 }
