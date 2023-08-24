@@ -176,21 +176,17 @@ export class SqliteContractCache<V>
     benchmark.reset();
 
     const strVal = JSON.stringify(value); // to preserve validity order
-    // const stateHash = this.generateHash(safeStringify(value.state));
-    // const validityHash = this.generateHash(safeStringify(value.validity));
     this.logger.debug("Generating hashes", benchmark.elapsed());
     benchmark.reset();
 
     this.db
       .prepare(
-        "INSERT OR REPLACE INTO sort_key_cache (key, sort_key, value, state_hash, validity_hash) VALUES (@key, @sort_key, @value, @state_hash, @validity_hash)"
+        "INSERT OR REPLACE INTO sort_key_cache (key, sort_key, value) VALUES (@key, @sort_key, @value)"
       )
       .run({
         key: stateCacheKey.key,
         sort_key: stateCacheKey.sortKey,
         value: strVal,
-        state_hash: "",
-        validity_hash: "",
       });
     this.logger.debug("DB INSERT", benchmark.elapsed());
   }
